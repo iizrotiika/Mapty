@@ -254,3 +254,9 @@ a:visited {
   top: 80px;
   right: 64px;
 }
+
+.btn__delete--all {
+  position: absolute;
+  top: 80px;
+  left: 64px;
+}

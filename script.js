@@ -75,6 +75,7 @@ const inputDuration = document.querySelector('.form__input--duration');
 const inputCadence = document.querySelector('.form__input--cadence');
 const inputElevation = document.querySelector('.form__input--elevation');
 
+const deleteAllBtn = document.querySelector('.btn__delete--all');
 const sortElementBtn = document.querySelector('.btn__sort');
 const deleteElementBtn = document.querySelector('.workouts');
 // edit btn selector
@@ -102,6 +103,7 @@ class App {
 
     sortElementBtn.addEventListener('click', this.sortElements.bind(this));
     deleteElementBtn.addEventListener('click', this.deleteElement.bind(this));
+    deleteAllBtn.addEventListener('click', this.deleteAllElements.bind(this));
     // edit btn handler
     // editElementBtn.addEventListener('click', this.editElement.bind(this));
 
@@ -520,9 +522,16 @@ class App {
     });
   }
 
-  reset() {
-    localStorage.removeItem('workouts');
-    location.reload();
+  deleteAllElements() {
+    // Display a confirmation msg
+    const isConfirmed = window.confirm(
+      'Are you sure you want to delete all elements?'
+    );
+
+    if (isConfirmed) {
+      localStorage.removeItem('workouts');
+      location.reload();
+    }
   }
 }
 
