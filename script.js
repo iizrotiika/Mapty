@@ -75,13 +75,18 @@ const inputDuration = document.querySelector('.form__input--duration');
 const inputCadence = document.querySelector('.form__input--cadence');
 const inputElevation = document.querySelector('.form__input--elevation');
 
+const sortElementBtn = document.querySelector('.btn__sort');
 const deleteElementBtn = document.querySelector('.workouts');
+// edit btn selector
+// const editElementBtn = document.querySelector('.workouts');
 
 class App {
   #map;
   #mapZoomLevel = 13;
   #mapEvent;
   #workouts = [];
+  #sortBy = '';
+  #initialElements = null;
 
   constructor() {
     // Get users's position
@@ -95,7 +100,16 @@ class App {
     inputType.addEventListener('change', this._toggleElevationField);
     containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
 
+    sortElementBtn.addEventListener('click', this.sortElements.bind(this));
     deleteElementBtn.addEventListener('click', this.deleteElement.bind(this));
+    // edit btn handler
+    // editElementBtn.addEventListener('click', this.editElement.bind(this));
+
+    // input field change handler
+    containerWorkouts.addEventListener(
+      'change',
+      this._updateWorkoutInfo.bind(this)
+    );
   }
 
   _getPosition() {
@@ -246,12 +260,16 @@ class App {
             <span class="workout__icon">${
               workout.type === 'running' ? '🏃‍♂️' : '🦶🏼'
             }</span>
-            <span class="workout__value">${workout.distance}</span>
+            <input class="workout__value" value="${
+              workout.distance
+            }" data-type="distance" required size="1">
             <span class="workout__unit">km</span>
           </div>
           <div class="workout__details">
             <span class="workout__icon">⏱</span>
-            <span class="workout__value">${workout.duration}</span>
+            <input class="workout__value" value="${
+              workout.duration
+            }" data-type="duration" required size="1">
             <span class="workout__unit">min</span>
           </div>`;
 
@@ -259,29 +277,37 @@ class App {
       html += `
             <div class="workout__details">
             <span class="workout__icon">⚡️</span>
-            <span class="workout__value">${workout.pace.toFixed(1)}</span>
+            <input class="workout__value" value="${workout.pace.toFixed(
+              1
+            )}" data-type="pace" disabled required size="1">
             <span class="workout__unit">min/km</span>
           </div>
           <div class="workout__details">
             <span class="workout__icon">🦶🏼</span>
-            <span class="workout__value">${workout.cadence}</span>
+            <input class="workout__value" value="${
+              workout.cadence
+            }" data-type="cadence" required size="1">
             <span class="workout__unit">spm</span>
           </div>
-       </li> `;
+        </li>`;
 
     if (workout.type === 'cycling')
       html += `
             <div class="workout__details">
             <span class="workout__icon">⚡️</span>
-            <span class="workout__value">${workout.speed.toFixed(1)}</span>
+            <input class="workout__value" value="${workout.speed.toFixed(
+              1
+            )}" data-type="speed" disabled required size="2">
             <span class="workout__unit">km/h</span>
           </div>
           <div class="workout__details">
             <span class="workout__icon">⛰</span>
-            <span class="workout__value">${workout.elevationGain}</span>
+            <input class="workout__value" value="${
+              workout.elevationGain
+            }" data-type="elevationGain" required size="2">
             <span class="workout__unit">m</span>
-        </div>
-      </li>`;
+          </div>
+        </li>`;
 
     form.insertAdjacentHTML('afterend', html);
   }
@@ -307,6 +333,132 @@ class App {
     // using the public interface
     // workout.click();
   }
+
+  // Sorting logic
+  initializeInitialElements() {
+    const workoutElements = Array.from(
+      containerWorkouts.getElementsByTagName('li')
+    );
+    this.#initialElements = workoutElements.slice();
+  }
+
+  sortElements() {
+    if (!this.#initialElements) {
+      this.initializeInitialElements();
+    }
+
+    const workoutElements = Array.from(
+      containerWorkouts.getElementsByTagName('li')
+    );
+
+    if (!this.#sortBy) {
+      this.#sortBy = 'cycling';
+      workoutElements.sort((a, b) =>
+        a.classList.contains('workout--cycling') ? -1 : 1
+      );
+    } else if (this.#sortBy === 'cycling') {
+      this.#sortBy = 'running';
+      workoutElements.sort((a, b) =>
+        a.classList.contains('workout--running') ? -1 : 1
+      );
+    } else {
+      this.#sortBy = '';
+      workoutElements.sort((a, b) => {
+        const indexA = this.#initialElements.indexOf(a);
+        const indexB = this.#initialElements.indexOf(b);
+        return indexA - indexB;
+      });
+    }
+
+    workoutElements.forEach(element => containerWorkouts.appendChild(element));
+  }
+
+  // Editing workouts trough input fields
+  _getId(e) {
+    // detect workout element on click
+    const element = e.target.closest('.workout');
+    if (element) {
+      // get info about the workout that was clicked on
+      const id = element.dataset.id;
+      const foundWorkoutData = this.#workouts.find(elem => elem.id === id);
+
+      // Ensure foundWorkout is an instance of the appropriate class
+      let foundWorkout;
+      if (foundWorkoutData.type === 'running') {
+        foundWorkout = new Running(
+          foundWorkoutData.coords,
+          foundWorkoutData.distance,
+          foundWorkoutData.duration,
+          foundWorkoutData.cadence
+        );
+      } else if (foundWorkoutData.type === 'cycling') {
+        foundWorkout = new Cycling(
+          foundWorkoutData.coords,
+          foundWorkoutData.distance,
+          foundWorkoutData.duration,
+          foundWorkoutData.elevationGain
+        );
+      }
+
+      const workoutIndex = this.#workouts.indexOf(foundWorkout);
+      return [id, foundWorkout, workoutIndex, element];
+    }
+    return [];
+  }
+
+  _updateWorkoutInfo(e) {
+    // find info about workout that was clicked
+    const [id, foundWorkout, _, element] = this._getId(e);
+
+    // if no info, return
+    if (!id) return;
+    // get type of input and value
+    const typeOfInput = e.target.dataset.type;
+    const newInputValue = +e.target.value;
+
+    let type;
+
+    // update workout object with the new value from the input field
+    foundWorkout[typeOfInput] = newInputValue;
+
+    // recalculate pace or speed
+    if (foundWorkout.type === 'running') {
+      foundWorkout.calcPace();
+      type = 'pace';
+    }
+    if (foundWorkout.type === 'cycling') {
+      foundWorkout.calcSpeed();
+      type = 'speed';
+    }
+
+    //update calculation in UI in the appropriate input field
+    element.querySelector(`input[data-type ="${type}"`).value =
+      foundWorkout[type].toFixed(1);
+
+    // Update the workouts in the array
+    this.#workouts.forEach((workout, index) => {
+      if (workout.id === id) {
+        this.#workouts[index] = foundWorkout;
+      }
+    });
+
+    // save in local storage (update)
+    this._setLocalStorage();
+  }
+
+  // Potential edit button
+  // editElement(e) {
+  //   const editEl = e.target.closest('.workout');
+  //   if (!editEl) return;
+
+  //   const workoutId = editEl.dataset.id;
+  //   const workoutIndex = this.#workouts.findIndex(
+  //     work => work.id === workoutId
+  //   );
+  //   if (workoutIndex !== -1 && e.target.classList.contains('btn__edit')) {
+  //     this._showForm();
+  //   }
+  // }
 
   // Delete workouts
   deleteElement(e) {
